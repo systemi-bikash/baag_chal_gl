@@ -1,8 +1,12 @@
 package main
 
 import (
+	"image"
+	"image/draw"
+	"image/png"
 	"log"
 	"math"
+	"os"
 	"runtime"
 
 	"github.com/go-gl/gl/v2.1/gl"
@@ -31,6 +35,13 @@ var (
     selectedPiece  = [2]int{-1, -1}
     currentDragPos = [2]float32{0.0, 0.0}
 )
+
+
+var (
+  tigerTex uint32
+  goatTex  uint32
+)
+
 
 func init() {
     // Lock the main thread for OpenGL
@@ -61,6 +72,22 @@ func main() {
     boardState[0][4] = 2
     boardState[4][0] = 2
     boardState[4][4] = 2
+
+    // Enable blending & texturing
+    gl.Enable(gl.BLEND)
+    gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    gl.Enable(gl.TEXTURE_2D)
+
+    // Load textures
+    goatTex, err = LoadTexture("goat.png")
+    if err != nil {
+        log.Fatalf("Failed to load goat.png: %v", err)
+    }
+    tigerTex, err = LoadTexture("tiger.png")
+    if err != nil {
+        log.Fatalf("Failed to load tiger.png: %v", err)
+    }
+
 
     // Set callbacks
     window.SetMouseButtonCallback(onMouseClick)
@@ -117,6 +144,38 @@ func onMouseMove(window *glfw.Window, xpos, ypos float64) {
         currentDragPos[0] = float32((xpos / windowWidth) * 2 - 1)
         currentDragPos[1] = float32(1 - (ypos / windowHeight) * 2)
     }
+}
+
+
+//====================================================================
+// LOAD TEXTURE
+//====================================================================
+
+// LoadTexture loads a texture from a PNG file.
+func LoadTexture(file string) (uint32, error) {
+	imgFile, err := os.Open(file)
+	if err != nil {
+		return 0, err
+	}
+	defer imgFile.Close()
+
+	img, err := png.Decode(imgFile)
+	if err != nil {
+		return 0, err
+	}
+
+	rgba := image.NewRGBA(img.Bounds())
+	draw.Draw(rgba, rgba.Bounds(), img, image.Point{0, 0}, draw.Src)
+
+	var texture uint32
+	gl.GenTextures(1, &texture)
+	gl.BindTexture(gl.TEXTURE_2D, texture)
+
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, int32(rgba.Bounds().Dx()), int32(rgba.Bounds().Dy()), 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(rgba.Pix))
+
+	return texture, nil
 }
 
 //====================================================================
@@ -212,8 +271,8 @@ func isValidMove(from, to [2]int) bool {
 	// (dx == 0 && |dy| == 2)   => vertical jump
 	// (|dx| == 2 && |dy| == 2) => diagonal jump
 	if (abs(dx) == 2 && dy == 0) ||
-		 (dx == 0 && abs(dy) == 2) ||
-		 (abs(dx) == 2 && abs(dy) == 2) {
+		(dx == 0 && abs(dy) == 2) ||
+		(abs(dx) == 2 && abs(dy) == 2) {
 			return true
 	}
 
@@ -311,6 +370,33 @@ func drawBoard() {
     gl.End()
 }
 
+func drawPieceTex(x, y float32, tex uint32, size float32) {
+  gl.BindTexture(gl.TEXTURE_2D, tex)
+
+  half := size * 0.5
+
+  gl.Begin(gl.QUADS)
+
+  // Top-left
+  gl.TexCoord2f(0, 0) // Flip vertically
+  gl.Vertex2f(x-half, y+half)
+
+  // Top-right
+  gl.TexCoord2f(1, 0) // Flip vertically
+  gl.Vertex2f(x+half, y+half)
+
+  // Bottom-right
+  gl.TexCoord2f(1, 1) // Flip vertically
+  gl.Vertex2f(x+half, y-half)
+
+  // Bottom-left
+  gl.TexCoord2f(0, 1) // Flip vertically
+  gl.Vertex2f(x-half, y-half)
+  gl.End()
+
+  gl.BindTexture(gl.TEXTURE_2D, 0)
+}
+
 // drawPieces renders goats and tigers on the board.
 func drawPieces() {
     for i := 0; i < 5; i++ {
@@ -323,14 +409,14 @@ func drawPieces() {
                 // Skip the piece that is currently being dragged
                 continue
             }
+            x := boardPosX(i)
+            y := boardPosY(j)
 
             switch piece {
             case 1: // goat
-                gl.Color3f(0.0, 1.0, 0.0)
-                drawCircle(boardPosX(i), boardPosY(j), goatRadius, 20)
+                drawPieceTex(x, y, goatTex, 0.12)
             case 2: // tiger
-                gl.Color3f(1.0, 0.0, 0.0)
-                drawCircle(boardPosX(i), boardPosY(j), tigerRadius, 20)
+                drawPieceTex(x, y, tigerTex, 0.15)
             }
         }
     }
@@ -339,11 +425,13 @@ func drawPieces() {
 // drawDraggedPiece draws the piece under the mouse cursor
 func drawDraggedPiece() {
     if turn == 1 {
-        gl.Color3f(0.0, 1.0, 0.0) // Goat color
-        drawCircle(currentDragPos[0], currentDragPos[1], goatRadius, 20)
+        // gl.Color3f(0.0, 1.0, 0.0) // Goat color
+        // drawCircle(currentDragPos[0], currentDragPos[1], goatRadius, 20)
+        drawPieceTex(currentDragPos[0], currentDragPos[1], goatTex, 0.12)
     } else {
-        gl.Color3f(1.0, 0.0, 0.0) // Tiger color
-        drawCircle(currentDragPos[0], currentDragPos[1], tigerRadius, 20)
+        // gl.Color3f(1.0, 0.0, 0.0) // Tiger color
+        // drawCircle(currentDragPos[0], currentDragPos[1], tigerRadius, 20)
+        drawPieceTex(currentDragPos[0], currentDragPos[1], tigerTex, 0.15)
     }
 }
 
