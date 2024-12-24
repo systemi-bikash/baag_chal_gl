@@ -25,6 +25,39 @@ var (
   goatTex  uint32
 )
 
+
+var validConnections = map[[2]int][][2]int{
+	{0, 0}: {{0, 1}, {1, 1}, {1, 0}},
+	{0, 1}: {{0, 0}, {0, 2}, {1, 1}},
+	{0, 2}: {{0, 1}, {0, 3}, {1, 1}, {1, 2}},
+	{0, 3}: {{0, 2}, {0, 4}, {1, 3}},
+	{0, 4}: {{0, 3}, {1, 3}, {1, 4}},
+
+	{1, 0}: {{0, 0}, {1, 1}, {2, 0}},
+	{1, 1}: {{0, 0}, {0, 1}, {0, 2}, {1, 0}, {1, 2}, {2, 0}, {2, 2}, {2, 1}},
+	{1, 2}: {{0, 2}, {1, 1}, {1, 3}, {2, 2}},
+	{1, 3}: {{0, 3}, {0, 4}, {1, 2}, {1, 4}, {2, 4}, {2, 2}, {2, 3}},
+	{1, 4}: {{0, 4}, {1, 3}, {2, 4}},
+
+	{2, 0}: {{1, 0}, {2, 1}, {3, 0}},
+	{2, 1}: {{1, 1}, {2, 0}, {2, 2}, {3, 1}},
+	{2, 2}: {{1, 1}, {1, 2}, {1, 3}, {2, 1}, {2, 3}, {3, 1}, {3, 3}, {3, 2}},
+	{2, 3}: {{1, 3}, {2, 2}, {2, 4}, {3, 3}},
+	{2, 4}: {{1, 4}, {2, 3}, {3, 4}},
+
+	{3, 0}: {{2, 0}, {3, 1}, {4, 0}},
+	{3, 1}: {{2, 0}, {2, 1}, {2, 2}, {3, 0}, {3, 2}, {4, 0}, {4, 2}, {4, 1}},
+	{3, 2}: {{2, 2}, {3, 1}, {3, 3}, {4, 2}},
+	{3, 3}: {{2, 3}, {2, 4}, {3, 2}, {3, 4}, {4, 4}, {4, 2}, {4, 3}},
+	{3, 4}: {{2, 4}, {3, 3}, {4, 4}},
+
+	{4, 0}: {{3, 0}, {4, 1}, {4, 2}},
+	{4, 1}: {{3, 1}, {4, 0}, {4, 2}},
+	{4, 2}: {{3, 1}, {3, 2}, {3, 3}, {4, 1}, {4, 3}},
+	{4, 3}: {{3, 3}, {3, 4}, {4, 2}, {4, 4}},
+	{4, 4}: {{3, 4}, {4, 3}},
+}
+
 func switchTurn() {
 	turn = 3 - turn
 	log.Printf("Turn switched to %d", turn)
@@ -122,3 +155,49 @@ func onTigerPress(boardX, boardY int) {
 	}
 }
 
+func isValidMove(from, to [2]int) bool {
+	// Ensure destination is within range
+	if to[0] < 0 || to[1] < 0 || to[0] >= 5 || to[1] >= 5 {
+			return false
+	}
+
+	// Ensure the destination is connected to the source
+	validMoves, exists := validConnections[from]
+	if !exists {
+			return false
+	}
+	isConnected := false
+	for _, conn := range validMoves {
+			if conn == to {
+					isConnected = true
+					break
+			}
+	}
+	if !isConnected {
+			return false
+	}
+
+	// Check adjacency or valid jump (already handled)
+	dx := to[0] - from[0]
+	dy := to[1] - from[1]
+
+	// Single step (adjacency)
+	if (abs(dx) == 1 && dy == 0) ||
+			(dx == 0 && abs(dy) == 1) ||
+			(abs(dx) == 1 && abs(dy) == 1) {
+			return true
+	}
+
+	// Two-step jump with a goat in the middle
+	if (abs(dx) == 2 && dy == 0) ||
+			(dx == 0 && abs(dy) == 2) ||
+			(abs(dx) == 2 && abs(dy) == 2) {
+			midX := (from[0] + to[0]) / 2
+			midY := (from[1] + to[1]) / 2
+			if boardState[midX][midY] == 1 { // Must be a goat in the middle
+					return true
+			}
+	}
+
+	return false
+}
