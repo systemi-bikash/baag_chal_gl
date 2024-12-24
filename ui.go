@@ -59,7 +59,7 @@ func drawText2D(x, y float32, text string) {
 	c := freetype.NewContext()
 	c.SetDPI(75)
 	c.SetFont(mainFont)
-	c.SetFontSize(35)
+	c.SetFontSize(30)
 	c.SetClip(rgba.Bounds())
 	c.SetDst(rgba)
 	c.SetSrc(image.White)
@@ -87,7 +87,7 @@ func drawText2D(x, y float32, text string) {
 
 	// Render the texture as a quad at (x, y) in NDC
 
-	quadW := 1.35
+	quadW := 0.35
 	quadH := 0.1
 
 	gl.Color3f(1, 1, 1)

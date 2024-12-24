@@ -51,11 +51,11 @@ var validConnections = map[[2]int][][2]int{
 	{3, 3}: {{2, 3}, {2, 4}, {3, 2}, {3, 4}, {4, 4}, {4, 2}, {4, 3}},
 	{3, 4}: {{2, 4}, {3, 3}, {4, 4}},
 
-	{4, 0}: {{3, 0}, {4, 1}, {4, 2}},
+	{4, 0}: {{3, 0}, {3,1}, {4, 1}, {4, 2}},
 	{4, 1}: {{3, 1}, {4, 0}, {4, 2}},
 	{4, 2}: {{3, 1}, {3, 2}, {3, 3}, {4, 1}, {4, 3}},
 	{4, 3}: {{3, 3}, {3, 4}, {4, 2}, {4, 4}},
-	{4, 4}: {{3, 4}, {4, 3}},
+	{4, 4}: {{3, 3},{3, 4}, {4, 3}},
 }
 
 func switchTurn() {
@@ -105,13 +105,25 @@ func canCapture(from, to [2]int) bool {
 			(abs(dx) == 2 && abs(dy) == 2)) {
 			return false
 	}
+
 	midX := (from[0] + to[0]) / 2
 	midY := (from[1] + to[1]) / 2
 
-	// Check if the midpoint is a goat
-	return boardState[midX][midY] == 1
-}
+log.Printf("Midpoint at (%d, %d) has state: %d", midX, midY, boardState[midX][midY])
+log.Printf("Destination at (%d, %d) has state: %d", to[0], to[1], boardState[to[0]][to[1]])
 
+	// Check if the midpoint is a goat
+	if boardState[midX][midY] != 1 {
+			return false
+	}
+
+	// Check if the destination is empty
+	if boardState[to[0]][to[1]] != 0 {
+			return false
+	}
+
+	return true
+}
 
 // captureGoat removes a goat from the midpoint and moves the tiger
 func captureGoat(from, to [2]int) {
@@ -156,48 +168,90 @@ func onTigerPress(boardX, boardY int) {
 }
 
 func isValidMove(from, to [2]int) bool {
-	// Ensure destination is within range
+	// 1. Range check
 	if to[0] < 0 || to[1] < 0 || to[0] >= 5 || to[1] >= 5 {
 			return false
 	}
 
-	// Ensure the destination is connected to the source
-	validMoves, exists := validConnections[from]
-	if !exists {
-			return false
-	}
-	isConnected := false
-	for _, conn := range validMoves {
-			if conn == to {
-					isConnected = true
-					break
-			}
-	}
-	if !isConnected {
+	// 2. Destination must be empty
+	if boardState[to[0]][to[1]] != 0 {
 			return false
 	}
 
-	// Check adjacency or valid jump (already handled)
 	dx := to[0] - from[0]
 	dy := to[1] - from[1]
 
-	// Single step (adjacency)
+	// =========== SINGLE-STEP MOVE ===========
+	// Check if 'to' is directly connected to 'from'.
 	if (abs(dx) == 1 && dy == 0) ||
-			(dx == 0 && abs(dy) == 1) ||
-			(abs(dx) == 1 && abs(dy) == 1) {
+		 (dx == 0 && abs(dy) == 1) ||
+		 (abs(dx) == 1 && abs(dy) == 1) {
+
+			// Single-step must appear in validConnections[from]
+			validMoves, exists := validConnections[from]
+			if !exists {
+					return false
+			}
+			// 'to' must be in that slice
+			for _, conn := range validMoves {
+					if conn == to {
+							return true
+					}
+			}
+			return false
+	}
+
+	// =========== TWO-STEP JUMP (CAPTURE) ===========
+	if (abs(dx) == 2 && dy == 0) ||
+		 (dx == 0 && abs(dy) == 2) ||
+		 (abs(dx) == 2 && abs(dy) == 2) {
+
+			// The midpoint must have a goat
+			midX := (from[0] + to[0]) / 2
+			midY := (from[1] + to[1]) / 2
+			if boardState[midX][midY] != 1 {
+					// No goat at midpoint => invalid jump
+					return false
+			}
+
+			// ensure the path from 'from' to 'mid'
+
+			// 2a) from -> mid
+			fromConns, exists := validConnections[from]
+			if !exists {
+					return false
+			}
+			foundMid := false
+			for _, conn := range fromConns {
+					if conn == [2]int{midX, midY} {
+							foundMid = true
+							break
+					}
+			}
+			if !foundMid {
+					return false
+			}
+
+			// 2b) mid -> to
+			midConns, exists2 := validConnections[[2]int{midX, midY}]
+			if !exists2 {
+					return false
+			}
+			foundTo := false
+			for _, conn := range midConns {
+					if conn == to {
+							foundTo = true
+							break
+					}
+			}
+			if !foundTo {
+					return false
+			}
+
+			// a valid two-step jump
 			return true
 	}
 
-	// Two-step jump with a goat in the middle
-	if (abs(dx) == 2 && dy == 0) ||
-			(dx == 0 && abs(dy) == 2) ||
-			(abs(dx) == 2 && abs(dy) == 2) {
-			midX := (from[0] + to[0]) / 2
-			midY := (from[1] + to[1]) / 2
-			if boardState[midX][midY] == 1 { // Must be a goat in the middle
-					return true
-			}
-	}
-
+	// =========== OTHERWISE INVALID ===========
 	return false
 }
