@@ -19,19 +19,14 @@ const (
     goatRadius   = 0.02
 )
 
-
-var resetButtonRect = struct {
-  minX, minY, maxX, maxY float32
-}{
-  0.75, 0.85, 0.95, 0.95,
-}
-
 func init() {
     // Lock the main thread for OpenGL
     runtime.LockOSThread()
 }
 
 func main() {
+
+
     if err := glfw.Init(); err != nil {
         log.Fatalln("failed to initialize glfw:", err)
     }
@@ -61,6 +56,10 @@ func main() {
     gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
     gl.Enable(gl.TEXTURE_2D)
 
+			// loading font
+		if err := LoadFont("assets/Copenhagen.ttf"); err != nil {
+    		log.Fatalln("Failed to load font:", err)
+		}
     // Load textures
     goatTex, err = LoadTexture("goat_1.png")
     if err != nil {
@@ -81,7 +80,8 @@ func main() {
         gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
         drawBoard()
         drawPieces()
-        if draggingPiece {
+        drawUI()
+				if draggingPiece {
             drawDraggedPiece()
         }
 
@@ -128,35 +128,47 @@ func LoadTexture(file string) (uint32, error) {
 //====================================================================
 
 func isValidMove(from, to [2]int) bool {
-	// Must be in range and empty
+	// Ensure destination is within range
 	if to[0] < 0 || to[1] < 0 || to[0] >= 5 || to[1] >= 5 {
 			return false
 	}
-	if boardState[to[0]][to[1]] != 0 {
+
+	// Ensure the destination is connected to the source
+	validMoves, exists := validConnections[from]
+	if !exists {
+			return false
+	}
+	isConnected := false
+	for _, conn := range validMoves {
+			if conn == to {
+					isConnected = true
+					break
+			}
+	}
+	if !isConnected {
 			return false
 	}
 
+	// Check adjacency or valid jump (already handled)
 	dx := to[0] - from[0]
 	dy := to[1] - from[1]
 
-	// 1-step adjacency in any of 8 directions:
-	// (|dx| == 1 && dy == 0)   => horizontal
-	// (dx == 0 && |dy| == 1)   => vertical
-	// (|dx| == 1 && |dy| == 1) => diagonal
+	// Single step (adjacency)
 	if (abs(dx) == 1 && dy == 0) ||
-		(dx == 0 && abs(dy) == 1) ||
-		(abs(dx) == 1 && abs(dy) == 1) {
+			(dx == 0 && abs(dy) == 1) ||
+			(abs(dx) == 1 && abs(dy) == 1) {
 			return true
 	}
 
-	// 2-step jump in any of 8 directions (possible capture):
-	// (|dx| == 2 && dy == 0)   => horizontal jump
-	// (dx == 0 && |dy| == 2)   => vertical jump
-	// (|dx| == 2 && |dy| == 2) => diagonal jump
+	// Two-step jump with a goat in the middle
 	if (abs(dx) == 2 && dy == 0) ||
-		(dx == 0 && abs(dy) == 2) ||
-		(abs(dx) == 2 && abs(dy) == 2) {
-			return true
+			(dx == 0 && abs(dy) == 2) ||
+			(abs(dx) == 2 && abs(dy) == 2) {
+			midX := (from[0] + to[0]) / 2
+			midY := (from[1] + to[1]) / 2
+			if boardState[midX][midY] == 1 { // Must be a goat in the middle
+					return true
+			}
 	}
 
 	return false
