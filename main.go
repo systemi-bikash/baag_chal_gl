@@ -1,11 +1,7 @@
 package main
 
 import (
-	"image"
-	"image/draw"
-	"image/png"
 	"log"
-	"os"
 	"runtime"
 
 	"github.com/go-gl/gl/v2.1/gl"
@@ -58,7 +54,7 @@ func main() {
 
 			// loading font
 		if err := LoadFont("assets/Copenhagen.ttf"); err != nil {
-    		log.Fatalln("Failed to load font:", err)
+    	log.Fatalln("Failed to load font:", err)
 		}
     // Load textures
     goatTex, err = LoadTexture("goat_1.png")
@@ -89,88 +85,3 @@ func main() {
         glfw.PollEvents()
     }
 }
-
-
-//====================================================================
-// LOAD TEXTURE
-//====================================================================
-
-// LoadTexture loads a texture from a PNG file.
-func LoadTexture(file string) (uint32, error) {
-	imgFile, err := os.Open(file)
-	if err != nil {
-		return 0, err
-	}
-	defer imgFile.Close()
-
-	img, err := png.Decode(imgFile)
-	if err != nil {
-		return 0, err
-	}
-
-	rgba := image.NewRGBA(img.Bounds())
-	draw.Draw(rgba, rgba.Bounds(), img, image.Point{0, 0}, draw.Src)
-
-	var texture uint32
-	gl.GenTextures(1, &texture)
-	gl.BindTexture(gl.TEXTURE_2D, texture)
-
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, int32(rgba.Bounds().Dx()), int32(rgba.Bounds().Dy()), 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(rgba.Pix))
-
-	return texture, nil
-}
-
-
-//====================================================================
-// MOVEMENT / CAPTURE
-//====================================================================
-
-func isValidMove(from, to [2]int) bool {
-	// Ensure destination is within range
-	if to[0] < 0 || to[1] < 0 || to[0] >= 5 || to[1] >= 5 {
-			return false
-	}
-
-	// Ensure the destination is connected to the source
-	validMoves, exists := validConnections[from]
-	if !exists {
-			return false
-	}
-	isConnected := false
-	for _, conn := range validMoves {
-			if conn == to {
-					isConnected = true
-					break
-			}
-	}
-	if !isConnected {
-			return false
-	}
-
-	// Check adjacency or valid jump (already handled)
-	dx := to[0] - from[0]
-	dy := to[1] - from[1]
-
-	// Single step (adjacency)
-	if (abs(dx) == 1 && dy == 0) ||
-			(dx == 0 && abs(dy) == 1) ||
-			(abs(dx) == 1 && abs(dy) == 1) {
-			return true
-	}
-
-	// Two-step jump with a goat in the middle
-	if (abs(dx) == 2 && dy == 0) ||
-			(dx == 0 && abs(dy) == 2) ||
-			(abs(dx) == 2 && abs(dy) == 2) {
-			midX := (from[0] + to[0]) / 2
-			midY := (from[1] + to[1]) / 2
-			if boardState[midX][midY] == 1 { // Must be a goat in the middle
-					return true
-			}
-	}
-
-	return false
-}
-

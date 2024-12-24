@@ -5,7 +5,9 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"image/png"
 	"log"
+	"os"
 
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/golang/freetype"
@@ -104,4 +106,32 @@ func drawText2D(x, y float32, text string) {
 
 	gl.BindTexture(gl.TEXTURE_2D, 0)
 	gl.DeleteTextures(1, &textTex)
+}
+
+
+// LoadTexture loads a texture from a PNG file.
+func LoadTexture(file string) (uint32, error) {
+	imgFile, err := os.Open(file)
+	if err != nil {
+		return 0, err
+	}
+	defer imgFile.Close()
+
+	img, err := png.Decode(imgFile)
+	if err != nil {
+		return 0, err
+	}
+
+	rgba := image.NewRGBA(img.Bounds())
+	draw.Draw(rgba, rgba.Bounds(), img, image.Point{0, 0}, draw.Src)
+
+	var texture uint32
+	gl.GenTextures(1, &texture)
+	gl.BindTexture(gl.TEXTURE_2D, texture)
+
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, int32(rgba.Bounds().Dx()), int32(rgba.Bounds().Dy()), 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(rgba.Pix))
+
+	return texture, nil
 }
