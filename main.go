@@ -14,34 +14,18 @@ import (
 )
 
 const (
-    windowWidth  = 800
-    windowHeight = 800
+    windowWidth  = 1000
+    windowHeight = 1000
     tigerRadius  = 0.03
     goatRadius   = 0.02
 )
 
-var (
-    // 0 = empty, 1 = goat, 2 = tiger
-    boardState [5][5]int
 
-    // turn: 1 = goat, 2 = tiger
-    turn = 1
-
-    placedGoats   = 0
-    capturedGoats = 0
-
-    // Dragging state
-    draggingPiece  bool
-    selectedPiece  = [2]int{-1, -1}
-    currentDragPos = [2]float32{0.0, 0.0}
-)
-
-
-var (
-  tigerTex uint32
-  goatTex  uint32
-)
-
+var resetButtonRect = struct {
+  minX, minY, maxX, maxY float32
+}{
+  0.75, 0.85, 0.95, 0.95,
+}
 
 func init() {
     // Lock the main thread for OpenGL
@@ -79,7 +63,7 @@ func main() {
     gl.Enable(gl.TEXTURE_2D)
 
     // Load textures
-    goatTex, err = LoadTexture("goat.png")
+    goatTex, err = LoadTexture("goat_1.png")
     if err != nil {
         log.Fatalf("Failed to load goat.png: %v", err)
     }
@@ -88,10 +72,10 @@ func main() {
         log.Fatalf("Failed to load tiger.png: %v", err)
     }
 
-
     // Set callbacks
     window.SetMouseButtonCallback(onMouseClick)
     window.SetCursorPosCallback(onMouseMove)
+    window.SetKeyCallback(onKeyPress)
 
     // Main loop
     for !window.ShouldClose() {
@@ -104,45 +88,6 @@ func main() {
 
         window.SwapBuffers()
         glfw.PollEvents()
-    }
-}
-
-//====================================================================
-// CALLBACKS
-//====================================================================
-
-//  handles placing goats, starting drags, and finalizing moves.
-func onMouseClick(window *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
-    if button != glfw.MouseButtonLeft {
-        return
-    }
-    mouseX, mouseY := window.GetCursorPos()
-    boardX, boardY := screenToBoardCoords(mouseX, mouseY)
-    if boardX < 0 || boardY < 0 || boardX >= 5 || boardY >= 5 {
-        return
-    }
-
-    switch action {
-    case glfw.Press:
-        if turn == 1 {
-            // Goat's turn
-            onGoatPress(boardX, boardY)
-        } else {
-            // Tiger's turn
-            onTigerPress(boardX, boardY)
-        }
-    case glfw.Release:
-        if draggingPiece {
-            onPieceRelease(boardX, boardY)
-        }
-    }
-}
-
-//  updates the currentDragPos if dragging a piece
-func onMouseMove(window *glfw.Window, xpos, ypos float64) {
-    if draggingPiece {
-        currentDragPos[0] = float32((xpos / windowWidth) * 2 - 1)
-        currentDragPos[1] = float32(1 - (ypos / windowHeight) * 2)
     }
 }
 
@@ -178,67 +123,6 @@ func LoadTexture(file string) (uint32, error) {
 	return texture, nil
 }
 
-//====================================================================
-// TURN LOGIC / HELPER FUNCTIONS
-//====================================================================
-
-// onGoatPress handles placing a goat (if <20 placed) or
-// potentially dragging goats if you want goats to move after 20 are placed.
-func onGoatPress(boardX, boardY int) {
-    // 1) If fewer than 20 goats have been placed, place a new goat
-    if placedGoats < 20 {
-        if boardState[boardX][boardY] == 0 {
-            placeGoat(boardX, boardY)
-            // If the goats and tigers to alternate immediately:
-            switchTurn()
-        }
-        return
-    }
-}
-
-//  handles initiating a drag on a tiger piece
-func onTigerPress(boardX, boardY int) {
-    if boardState[boardX][boardY] == 2 {
-        draggingPiece = true
-        selectedPiece = [2]int{boardX, boardY}
-        log.Printf("Tiger selected at (%d, %d)", boardX, boardY)
-    }
-}
-
-//  handles finalizing a move for the piece being dragged.
-func onPieceRelease(boardX, boardY int) {
-    draggingPiece = false
-    from := selectedPiece
-    to := [2]int{boardX, boardY}
-
-    if isValidMove(from, to) {
-        if canCapture(from, to) {
-            captureGoat(from, to)
-        } else {
-            // Normal move
-            boardState[from[0]][from[1]] = 0
-            boardState[to[0]][to[1]] = turn
-        }
-        switchTurn()
-    } else {
-        log.Printf("Invalid move from (%d, %d) to (%d, %d)", from[0], from[1], to[0], to[1])
-    }
-
-    selectedPiece = [2]int{-1, -1}
-}
-
-// switchTurn toggles the turn: 1 -> 2, 2 -> 1
-func switchTurn() {
-    turn = 3 - turn
-    log.Printf("Turn switched to %d", turn)
-}
-
-// placeGoat puts a goat on the board
-func placeGoat(x, y int) {
-    boardState[x][y] = 1
-    placedGoats++
-    log.Printf("Goat placed at (%d, %d). Total placed: %d", x, y, placedGoats)
-}
 
 //====================================================================
 // MOVEMENT / CAPTURE
@@ -278,49 +162,46 @@ func isValidMove(from, to [2]int) bool {
 
 	return false
 }
-// canCapture checks if there is a goat in the midpoint between 'from' and 'to'
-// when jumping 2 steps in any of the 8 directions.
-func canCapture(from, to [2]int) bool {
-	dx := to[0] - from[0]
-	dy := to[1] - from[1]
-
-	// Only a 2-step jump can capture
-	if !((abs(dx) == 2 && dy == 0) ||
-			(dx == 0 && abs(dy) == 2) ||
-			(abs(dx) == 2 && abs(dy) == 2)) {
-			return false
-	}
-
-	midX := (from[0] + to[0]) / 2
-	midY := (from[1] + to[1]) / 2
-
-	// Check if the midpoint is a goat
-	return boardState[midX][midY] == 1
-}
-
-// Utility function for absolute value of an int
-func abs(n int) int {
-	if n < 0 {
-			return -n
-	}
-	return n
-}
 
 
-// captureGoat removes a goat from the midpoint and moves the tiger
-func captureGoat(from, to [2]int) {
-    midX := (from[0] + to[0]) / 2
-    midY := (from[1] + to[1]) / 2
-    boardState[midX][midY] = 0     // Remove the goat
-    boardState[from[0]][from[1]] = 0
-    boardState[to[0]][to[1]] = 2   // Move the tiger
-    capturedGoats++
-    log.Printf("Goat captured! Total captured: %d", capturedGoats)
-}
+
 
 //====================================================================
 // RENDERING
 //====================================================================
+
+
+// resetGame re-initializes the entire board, placing tigers in the corners, etc.
+func resetGame() {
+  // Clear board
+  for i := 0; i < 5; i++ {
+      for j := 0; j < 5; j++ {
+          boardState[i][j] = 0
+      }
+  }
+  // Place tigers in corners
+  boardState[0][0] = 2
+  boardState[0][4] = 2
+  boardState[4][0] = 2
+  boardState[4][4] = 2
+
+  turn = 1
+  placedGoats = 0
+  capturedGoats = 0
+  draggingPiece = false
+  selectedPiece = [2]int{-1, -1}
+  currentDragPos = [2]float32{0.0, 0.0}
+
+  log.Println("Game reset.")
+}
+
+// isOverResetButton checks if the mouse click in window coordinates is
+// inside the bounding box for the Reset button (in normalized coords).
+func isOverResetButton(mouseX, mouseY float64) bool {
+  ndcX, ndcY := screenToNDC(mouseX, mouseY)
+  return ndcX >= resetButtonRect.minX && ndcX <= resetButtonRect.maxX &&
+        ndcY >= resetButtonRect.minY && ndcY <= resetButtonRect.maxY
+}
 
 // drawBoard renders the 5x5 grid plus diagonal lines.
 func drawBoard() {
@@ -449,35 +330,38 @@ func drawCircle(x, y, radius float32, segments int) {
 }
 
 //====================================================================
-// COORDINATE TRANSFORMS
+// COORDINATE TRANSFORMS / HELPER
 //====================================================================
 
-// screenToBoardCoords converts window coordinates to a rough board index.
+// screenToBoardCoords converts window coords to which board cell was clicked.
 func screenToBoardCoords(x, y float64) (int, int) {
-    // Convert [0..width] to [-1..+1], [0..height] to [+1..-1]
-    nx := float32((x / windowWidth)*2 - 1)
-    ny := float32(1 - (y / windowHeight)*2)
-
-    // each grid cell is 0.4 units in each direction from -0.8..+0.8
-    // simple bounding check for which cell the user clicked
-    for i := 0; i < 5; i++ {
-        for j := 0; j < 5; j++ {
-            cx := boardPosX(i)
-            cy := boardPosY(j)
-            if math.Abs(float64(cx)-float64(nx)) < 0.2 &&
-              math.Abs(float64(cy)-float64(ny)) < 0.2 {
-                return i, j
-            }
-        }
-    }
-    return -1, -1
+  ndcX, ndcY := screenToNDC(x, y)
+  // each grid cell is 0.4 wide from -0.8..+0.8
+  // check which cell center is within ~0.2 of the click
+  for i := 0; i < 5; i++ {
+      for j := 0; j < 5; j++ {
+          cx := boardPosX(i)
+          cy := boardPosY(j)
+          if math.Abs(float64(cx)-float64(ndcX)) < 0.2 &&
+              math.Abs(float64(cy)-float64(ndcY)) < 0.2 {
+              return i, j
+          }
+      }
+  }
+  return -1, -1
 }
 
-// boardPosX, boardPosY map board indices [0..4] to normalized device coords [-0.8..+0.8].
+// screenToNDC converts window mouse coords to normalized device coords (-1..1).
+func screenToNDC(x, y float64) (float32, float32) {
+  ndcX := float32((x / windowWidth) * 2 - 1)
+  ndcY := float32(1 - (y / windowHeight) * 2)
+  return ndcX, ndcY
+}
+
 func boardPosX(i int) float32 {
-    return -0.8 + 0.4*float32(i)
+  return -0.8 + 0.4*float32(i)
 }
 
 func boardPosY(j int) float32 {
-    return -0.8 + 0.4*float32(j)
+  return -0.8 + 0.4*float32(j)
 }
