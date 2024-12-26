@@ -11,7 +11,7 @@ go build
 go run .
 ```
 
-## for linux you may require these 
+## for linux you may require these [ubuntu] 
 ```
  sudo apt install build-essential pkg-config libgl1-mesa-dev libx11-dev
  sudo apt install libxxf86vm-dev
