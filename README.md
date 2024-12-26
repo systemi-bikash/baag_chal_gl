@@ -11,6 +11,22 @@ go build
 go run .
 ```
 
+## for linux you may require these 
+```
+ sudo apt install build-essential pkg-config libgl1-mesa-dev libx11-dev
+ sudo apt install libxxf86vm-dev
+ sudo apt install libxi-dev
+ sudo apt install libxinerama-dev
+ sudo apt install libxrandr-dev
+ sudo apt install libxcursor-dev
+```
+
+make sure to setup 
+```
+ export PKG_CONFIG_PATH=/path/to/gl.pc:$PKG_CONFIG_PATH
+```
+
+
 Enjoy !!! ( ´∀｀ )
 
 
