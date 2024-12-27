@@ -38,7 +38,7 @@ func drawUI() {
 	banner := fmt.Sprintf("Goats Placed: %d | Captured: %d | Remaining: %d",
 			placedGoats, capturedGoats, goatsRemaining)
 
-	drawText2D(-0.9, .95, banner)
+	drawText2D(-0.6, .90, banner)
 }
 
 
@@ -59,7 +59,7 @@ func drawText2D(x, y float32, text string) {
 	c := freetype.NewContext()
 	c.SetDPI(75)
 	c.SetFont(mainFont)
-	c.SetFontSize(30)
+	c.SetFontSize(25)
 	c.SetClip(rgba.Bounds())
 	c.SetDst(rgba)
 	c.SetSrc(image.White)
