@@ -11,6 +11,7 @@ var (
 
 	placedGoats   = 0
 	capturedGoats = 0
+	gameOver = false
 
 	// Dragging state
 	draggingPiece  bool
@@ -24,6 +25,7 @@ var (
   tigerTex uint32
   goatTex  uint32
 )
+
 
 
 var validConnections = map[[2]int][][2]int{
@@ -58,9 +60,46 @@ var validConnections = map[[2]int][][2]int{
 	{4, 4}: {{3, 3},{3, 4}, {4, 3}},
 }
 
+
+// checkTigerMoves returns true if at least one tiger can move
+func checkTigerMoves() bool {
+	// check if  if it has at least one valid move or capture.
+	for x := 0; x < 5; x++ {
+			for y := 0; y < 5; y++ {
+					if boardState[x][y] == 2 {
+							for nx := 0; nx < 5; nx++ {
+									for ny := 0; ny < 5; ny++ {
+											if isValidMove([2]int{x, y}, [2]int{nx, ny}) {
+													return true
+											}
+									}
+							}
+					}
+			}
+	}
+	return false
+}
+
 func switchTurn() {
 	turn = 3 - turn
 	log.Printf("Turn switched to %d", turn)
+
+	// If it is now Tiger's turn, check if Tigers can move
+	if turn == 2 && !checkTigerMoves() {
+			gameOver = true
+			showDialog(
+					"Game Over",
+					"Goats win! Tigers have no valid moves.",
+					"goat_win_icon.png",
+					 // onNewGame callback
+					func() {
+						resetGame()
+				},
+					func() {
+						log.Println("User Canceled.Game remains over")
+					},
+			)
+	}
 }
 
 // placeGoat puts a goat on the board
@@ -73,6 +112,9 @@ func placeGoat(x, y int) {
 
 //  handles finalizing a move for the piece being dragged.
 func onPieceRelease(boardX, boardY int) {
+	if gameOver {
+		return
+}
 	draggingPiece = false
 	from := selectedPiece
 	to := [2]int{boardX, boardY}
@@ -127,13 +169,30 @@ log.Printf("Destination at (%d, %d) has state: %d", to[0], to[1], boardState[to[
 
 // captureGoat removes a goat from the midpoint and moves the tiger
 func captureGoat(from, to [2]int) {
-	midX := (from[0] + to[0]) / 2
-	midY := (from[1] + to[1]) / 2
-	boardState[midX][midY] = 0     // Remove the goat
-	boardState[from[0]][from[1]] = 0
-	boardState[to[0]][to[1]] = 2   // Move the tiger
-	capturedGoats++
-	log.Printf("Goat captured! Total captured: %d", capturedGoats)
+    midX := (from[0] + to[0]) / 2
+    midY := (from[1] + to[1]) / 2
+    boardState[midX][midY] = 0     // Remove the goat
+    boardState[from[0]][from[1]] = 0
+    boardState[to[0]][to[1]] = 2   // Move the tiger
+    capturedGoats++
+    log.Printf("Goat captured! Total captured: %d", capturedGoats)
+
+    // Check if 5 goats have been captured => Tiger wins
+    if capturedGoats == 5 {
+        gameOver = true
+				log.Printf("笑****** TIGER HAS WON! *****笑")
+        showDialog(
+            "Game Over",
+            "Tiger wins! 5 goats have been captured.",
+            "tiger_win_icon.png",
+						func() {
+							resetGame()
+					},
+						func() {
+							log.Println("User Canceled.Game remains over")
+						},
+        )
+    }
 }
 
 

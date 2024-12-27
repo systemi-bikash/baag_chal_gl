@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"image"
 	"image/color"
@@ -8,6 +9,7 @@ import (
 	"image/png"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/golang/freetype"
@@ -134,4 +136,26 @@ func LoadTexture(file string) (uint32, error) {
 	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, int32(rgba.Bounds().Dx()), int32(rgba.Bounds().Dy()), 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(rgba.Pix))
 
 	return texture, nil
+}
+
+
+func showDialog(  title string,
+	message string,
+	iconPath string,
+	onNewGame func(),
+	onCancel func(),) {
+
+		log.Printf("[DIALOG] Title: %s\nMessage: %s\nIcon: %s", title, message, iconPath)
+
+    fmt.Println("Press 'Y' to start a new game, or any other key to cancel.")
+
+		reader := bufio.NewReader(os.Stdin)
+    input, _ := reader.ReadString('\n')
+    input = strings.ToUpper(strings.TrimSpace(input))
+
+    if input == "Y" {
+        onNewGame()
+    } else {
+        onCancel()
+    }
 }
