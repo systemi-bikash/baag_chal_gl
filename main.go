@@ -53,7 +53,7 @@ func main() {
     gl.Enable(gl.TEXTURE_2D)
 
 			// loading font
-		if err := LoadFont("assets/Copenhagen.ttf"); err != nil {
+		if err := LoadFont("assets/Wasted-Vindey.ttf"); err != nil {
     	log.Fatalln("Failed to load font:", err)
 		}
     // Load textures
