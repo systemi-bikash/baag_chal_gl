@@ -21,8 +21,6 @@ func init() {
 }
 
 func main() {
-
-
     if err := glfw.Init(); err != nil {
         log.Fatalln("failed to initialize glfw:", err)
     }
@@ -80,6 +78,10 @@ func main() {
 				if draggingPiece {
             drawDraggedPiece()
         }
+
+				if dialogActive {
+					drawDialogBox()
+			}
 
         window.SwapBuffers()
         glfw.PollEvents()
