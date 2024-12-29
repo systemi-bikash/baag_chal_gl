@@ -27,6 +27,7 @@ func resetGame() {
   draggingPiece = false
   selectedPiece = [2]int{-1, -1}
   currentDragPos = [2]float32{0.0, 0.0}
+	gameOver = false
 
   log.Println("Game reset.")
 }
