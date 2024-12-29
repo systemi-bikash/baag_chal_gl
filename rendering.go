@@ -42,8 +42,13 @@ func isOverResetButton(mouseX, mouseY float64) bool {
 
 // drawBoard renders the 5x5 grid plus diagonal lines.
 func drawBoard() {
-    gl.LineWidth(2.0)
-    gl.Color3f(1.0, 1.0, 1.0) // White lines
+	if bgAverageBrightness > 0.5 {
+		// background is “light,” so use black lines
+		gl.Color3f(0, 0, 0)
+} else {
+		// background is “dark,” so use white lines
+		gl.Color3f(1, 1, 1)
+}
 
     // 5 vertical + 5 horizontal lines
     for i := 0; i < 5; i++ {
